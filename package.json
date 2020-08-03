@@ -1,0 +1,27 @@
+{
+  "name": "graphling",
+  "version": "1.0.0",
+  "description": "A lightweight datastructure for graphlike data.",
+  "main": "index.js",
+  "scripts": {
+    "test": "ava"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mildewey/graphling.git"
+  },
+  "keywords": [
+    "graph",
+    "datastructure"
+  ],
+  "author": "Mark Dewey",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/mildewey/graphling/issues"
+  },
+  "homepage": "https://github.com/mildewey/graphling#readme",
+  "dependencies": {},
+  "devDependencies": {
+    "ava": "^3.11.0"
+  }
+}
