@@ -3,24 +3,28 @@ function store() {
 
   return {
     add: function (key, value) {
-      if (!map.has(key)) {
-        map[key] = new Set()
+      values = map[key]
+      if (values === undefined) {
+        map[key] = values = new Set()
       }
-      map[key].add(value)
+      values.add(value)
     },
     delete: function (key, value) {
-      if (map.has(key)) {
-        map[key].delete(value)
-        if (!map[key].size) {
+      const values = map[key]
+      if (values !== undefined) {
+        values.delete(value)
+        if (!values.size) {
           map.delete(key)
         }
       }
     },
     has: function (key, value) {
-      return map.has(key) && map[key].has(value)
+      values = map[key]
+      return values !== undefined && values.has(value)
     },
     values: function(key) {
-      if (!map.has(key)) {
+      const values = map[key]
+      if (values === undefined) {
         return []
       }
       return [...map[key]]
@@ -29,33 +33,35 @@ function store() {
 }
 
 
-module.exports = function () => {
-  const id = Symbol("graphling-id")
-  const subject = {
-    predicates: store(),
-    objects: store()
+module.exports = function () {
+  const graphling = {
+    id: Symbol("graphling-id"),
+    subject: {
+      predicates: store(),
+      objects: store()
+    },
+    predicate: {
+      subjects: store(),
+      objects: store()
+    },
+    object: {
+      subjects: store(),
+      predicates: store()
+    },
+    properties: new Map()
   }
-  const predicate = {
-    subjects: store(),
-    objects: store()
-  }
-  const object = {
-    subjects: store(),
-    predicates: store()
-  }
-  const properties = new Map()
 
   function index(val) {
     if (typeof val === "object") {
-      val[id] = val[id] || Symbol()
-      properties.set(val[id], val)
-      return val[id]
+      val[graphling.id] = val[graphling.id] || Symbol()
+      graphling.properties.set(val[graphling.id], val)
+      return val[graphling.id]
     }
     return val
   }
 
   function props(key) {
-    prop = properties.get(key)
+    prop = graphling.properties.get(key)
     if (prop === undefined) return key
     return prop
   }
@@ -66,17 +72,17 @@ module.exports = function () => {
 
   return {
     link: function (subject, predicate, object) {
-      if !(valid(subject) && valid(predicate) && valid(object)) return false
+      if (!(valid(subject) && valid(predicate) && valid(object))) return false
       sub = index(subject)
       pred = index(predicate)
       ob = index(object)
 
-      subject.predicates.add(sub, pred)
-      subject.objects.add(sub, pred)
-      predicate.subjects.add(pred, sub)
-      predicate.objects.add(pred, ob)
-      object.subjects.add(ob, sub)
-      object.predicates.add(ob, pred)
+      graphling.subject.predicates.add(sub, pred)
+      graphling.subject.objects.add(sub, ob)
+      graphling.predicate.subjects.add(pred, sub)
+      graphling.predicate.objects.add(pred, ob)
+      graphling.object.subjects.add(ob, sub)
+      graphling.object.predicates.add(ob, pred)
 
       return true
     },
@@ -85,64 +91,72 @@ module.exports = function () => {
       pred = index(predicate)
       ob = index(object)
 
-      subject.predicates.delete(sub, pred)
-      subject.objects.delete(sub, pred)
-      predicate.subjects.delete(pred, sub)
-      predicate.objects.delete(pred, ob)
-      object.subjects.delete(ob, sub)
-      object.predicates.delete(ob, pred)
+      graphling.subject.predicates.delete(sub, pred)
+      graphling.subject.objects.delete(sub, ob)
+      graphling.predicate.subjects.delete(pred, sub)
+      graphling.predicate.objects.delete(pred, ob)
+      graphling.object.subjects.delete(ob, sub)
+      graphling.object.predicates.delete(ob, pred)
     },
-    neighbors: function (node, link=null, outgoing=true, incoming=true) {
+    neighbors: function (node, {link = null, incoming = true, outgoing = true} = {}) {
       if (!valid(node)) return []
 
       const nid = index(node)
       const lid = valid(link) ? index(link) : null
       const nodes = []
       if (outgoing) {
-        const out = subject.objects.values(nid)
+        const out = graphling.subject.objects.values(nid)
         if (lid !== null) {
-          nodes.push(...out.filter(o => predicate.objects.has(o, lid)))
+          nodes.push(...out.filter(o => graphling.predicate.objects.has(o, lid)))
+        } else {
+          nodes.push(...out)
         }
       }
       if (incoming) {
-        const in = object.subjects.values(nid)
+        const inc = graphling.object.subjects.values(nid)
         if (lid !== null) {
-          nodes.push(...in.filter(i => predicate.subjects.has(i, lid)))
+          nodes.push(...inc.filter(i => graphling.predicate.subjects.has(i, lid)))
+        } else {
+          nodes.push(...inc)
         }
       }
       return nodes.map(n => props(n))
     },
-    relationships: function (node, object=null, outgoing=true, incoming=true) {
+    relationships: function (node, {object = null, incoming = true, outgoing = true} = {}) {
       if (!valid(node)) return []
 
       const nid = index(node)
       const oid = valid(object) ? index(object) : null
       const preds = []
       if (outgoing) {
-        const out = subject.predicates.values(nid)
+        const out = graphling.subject.predicates.values(nid)
         if (oid !== null) {
-          preds.push(...out.filter(o => object.predicates.has(o, oid)))
+          preds.push(...out.filter(o => graphling.object.predicates.has(o, oid)))
+        } else {
+          preds.push(...out)
         }
       }
       if (incoming) {
-        const in = object.predicates.values(nid)
+        const inc = graphling.object.predicates.values(nid)
         if (oid !== null) {
-          preds.push(...in.filter(i => subject.predicates.has(i, oid)))
+          preds.push(...inc.filter(i => graphling.subject.predicates.has(i, oid)))
+        } else {
+          preds.push(...inc)
         }
       }
       return preds.map(p => props(p))
     },
-    nodes: function (link, origins=true, targets=true) {
+    nodes: function (link, {origins = true, targets = true} = {}) {
       if (!valid(link)) return []
 
       const lid = index(link)
       const all = []
 
       if (origins) {
-        all.push(...predicate.subjects.values(lid))
+        all.push(...graphling.predicate.subjects.values(lid))
       }
       if (targets) {
-        all.push(...predicate.objects.values(lid))
+        all.push(...graphling.predicate.objects.values(lid))
       }
 
       return all.map(a => props(a))
