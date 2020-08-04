@@ -103,63 +103,63 @@ module.exports = function () {
 
       const nid = index(node)
       const lid = valid(link) ? index(link) : null
-      const nodes = []
+      const nodes = new Set()
       if (outgoing) {
         const out = graphling.subject.objects.values(nid)
         if (lid !== null) {
-          nodes.push(...out.filter(o => graphling.predicate.objects.has(o, lid)))
+          out.filter(o => graphling.predicate.objects.has(o, lid)).forEach(o => nodes.add(o))
         } else {
-          nodes.push(...out)
+          out.forEach(o => nodes.add(o))
         }
       }
       if (incoming) {
         const inc = graphling.object.subjects.values(nid)
         if (lid !== null) {
-          nodes.push(...inc.filter(i => graphling.predicate.subjects.has(i, lid)))
+          inc.filter(o => graphling.predicate.objects.has(o, lid)).forEach(o => nodes.add(o))
         } else {
-          nodes.push(...inc)
+          inc.forEach(o => nodes.add(o))
         }
       }
-      return nodes.map(n => props(n))
+      return [...nodes].map(n => props(n))
     },
     relationships: function (node, {object = null, incoming = true, outgoing = true} = {}) {
       if (!valid(node)) return []
 
       const nid = index(node)
       const oid = valid(object) ? index(object) : null
-      const preds = []
+      const preds = new Set()
       if (outgoing) {
         const out = graphling.subject.predicates.values(nid)
         if (oid !== null) {
-          preds.push(...out.filter(o => graphling.object.predicates.has(o, oid)))
+          out.filter(o => graphling.object.predicates.has(o, oid)).forEach(o => preds.add(o))
         } else {
-          preds.push(...out)
+          out.forEach(o => preds.add(o))
         }
       }
       if (incoming) {
         const inc = graphling.object.predicates.values(nid)
         if (oid !== null) {
-          preds.push(...inc.filter(i => graphling.subject.predicates.has(i, oid)))
+          inc.filter(o => graphling.object.predicates.has(o, oid)).forEach(o => preds.add(o))
         } else {
-          preds.push(...inc)
+          inc.forEach(o => preds.add(o))
         }
       }
-      return preds.map(p => props(p))
+      return [...preds].map(p => props(p))
     },
     nodes: function (link, {origins = true, targets = true} = {}) {
       if (!valid(link)) return []
 
       const lid = index(link)
-      const all = []
+      const all = new Set()
 
       if (origins) {
-        all.push(...graphling.predicate.subjects.values(lid))
+        graphling.predicate.subjects.values(lid).forEach(s => all.add(s))
       }
       if (targets) {
-        all.push(...graphling.predicate.objects.values(lid))
+        graphling.predicate.objects.values(lid).forEach(s => all.add(s))
       }
 
-      return all.map(a => props(a))
+      return [...all].map(a => props(a))
     }
   }
 }
