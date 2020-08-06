@@ -1,33 +1,68 @@
+function map_iter(iter, func) {
+  result = iter.next()
+  map = []
+  while (!result.done) {
+    map.push(func(result.value))
+    result = iter.next();
+  }
+  return map
+}
+
+function identity(val) {
+  return val
+}
+
 function store() {
-  const map = new Map()
+  const root = new Map()
 
   return {
-    add: function (key, value) {
-      values = map[key]
-      if (values === undefined) {
-        map[key] = values = new Set()
+    add: function (a, b, c) {
+      let branch = root.get(a)
+      if (branch === undefined) {
+        branch = new Map()
+        root.set(a, branch)
       }
-      values.add(value)
+      let leaf = branch.get(b)
+      if (leaf === undefined) {
+        leaf = new Set()
+        branch.set(b, leaf)
+      }
+      leaf.add(c)
     },
-    delete: function (key, value) {
-      const values = map[key]
-      if (values !== undefined) {
-        values.delete(value)
-        if (!values.size) {
-          map.delete(key)
+    delete: function (a, b, c) {
+      let branch = root.get(a)
+      if (branch !== undefined) {
+        let leaf = branch.get(b)
+        if (leaf !== undefined) {
+          leaf.delete(c)
+          if (!leaf.size) {
+            branch.delete(b)
+          }
+        }
+        if (!branch.size) {
+          root.delete(a)
         }
       }
     },
-    has: function (key, value) {
-      values = map[key]
-      return values !== undefined && values.has(value)
+    has: function (a, b, c) {
+      let branch = root.get(a)
+      let leaf = branch === undefined ? undefined : branch.get(b)
+      return leaf === undefined ? False : leaf.has(c)
     },
-    values: function(key) {
-      const values = map[key]
-      if (values === undefined) {
-        return []
-      }
-      return [...map[key]]
+    roots: function () {
+      return map_iter(roots.keys(), identity)
+    },
+    branches: function (a) {
+      branch = root.get(a)
+      if (branch === undefined) return []
+      return map_iter(branch.keys(), identity)
+    },
+    leaves: function (a, b) {
+      branch = root.get(a)
+      if (branch === undefined) return []
+      leaf = branch.get(b)
+      if (leaf === undefined) return []
+      return map_iter(leaf.keys(), identity)
     }
   }
 }
@@ -36,18 +71,12 @@ function store() {
 module.exports = function () {
   const graphling = {
     id: Symbol("graphling-id"),
-    subject: {
-      predicates: store(),
-      objects: store()
-    },
-    predicate: {
-      subjects: store(),
-      objects: store()
-    },
-    object: {
-      subjects: store(),
-      predicates: store()
-    },
+    spo: store(),
+    sop: store(),
+    pso: store(),
+    pos: store(),
+    osp: store(),
+    ops: store(),
     properties: new Map()
   }
 
@@ -77,12 +106,12 @@ module.exports = function () {
       pred = index(predicate)
       ob = index(object)
 
-      graphling.subject.predicates.add(sub, pred)
-      graphling.subject.objects.add(sub, ob)
-      graphling.predicate.subjects.add(pred, sub)
-      graphling.predicate.objects.add(pred, ob)
-      graphling.object.subjects.add(ob, sub)
-      graphling.object.predicates.add(ob, pred)
+      graphling.spo.add(sub, pred, ob)
+      graphling.sop.add(sub, ob, pred)
+      graphling.pso.add(pred, sub, ob)
+      graphling.pos.add(pred, ob, sub)
+      graphling.osp.add(ob, sub, pred)
+      graphling.ops.add(ob, pred, sub)
 
       return true
     },
@@ -91,58 +120,46 @@ module.exports = function () {
       pred = index(predicate)
       ob = index(object)
 
-      graphling.subject.predicates.delete(sub, pred)
-      graphling.subject.objects.delete(sub, ob)
-      graphling.predicate.subjects.delete(pred, sub)
-      graphling.predicate.objects.delete(pred, ob)
-      graphling.object.subjects.delete(ob, sub)
-      graphling.object.predicates.delete(ob, pred)
+      graphling.spo.delete(sub, pred, ob)
+      graphling.sop.delete(sub, ob, pred)
+      graphling.pso.delete(pred, sub, ob)
+      graphling.pos.delete(pred, ob, sub)
+      graphling.osp.delete(ob, sub, pred)
+      graphling.ops.delete(ob, pred, sub)
     },
     neighbors: function (node, {link = null, incoming = true, outgoing = true} = {}) {
       if (!valid(node)) return []
 
       const nid = index(node)
-      const lid = valid(link) ? index(link) : null
+      const pid = valid(link) ? index(link) : null
       const nodes = new Set()
-      if (outgoing) {
-        const out = graphling.subject.objects.values(nid)
-        if (lid !== null) {
-          out.filter(o => graphling.predicate.objects.has(o, lid)).forEach(o => nodes.add(o))
-        } else {
-          out.forEach(o => nodes.add(o))
-        }
+      if (outgoing && pid) {
+        graphling.spo.leaves(nid, pid).forEach(o => nodes.add(o))
+      } else if (outgoing) {
+        graphling.sop.branches(nid).forEach(o => nodes.add(o))
       }
-      if (incoming) {
-        const inc = graphling.object.subjects.values(nid)
-        if (lid !== null) {
-          inc.filter(o => graphling.predicate.objects.has(o, lid)).forEach(o => nodes.add(o))
-        } else {
-          inc.forEach(o => nodes.add(o))
-        }
+      if (incoming && pid) {
+        graphling.ops.leaves(nid, pid).forEach(s => nodes.add(s))
+      } else if (incoming) {
+        graphling.osp.branches(nid).forEach(s => nodes.add(s))
       }
       return [...nodes].map(n => props(n))
     },
-    relationships: function (node, {object = null, incoming = true, outgoing = true} = {}) {
+    relationships: function (node, {other = null, incoming = true, outgoing = true} = {}) {
       if (!valid(node)) return []
 
       const nid = index(node)
-      const oid = valid(object) ? index(object) : null
+      const oid = valid(other) ? index(other) : null
       const preds = new Set()
-      if (outgoing) {
-        const out = graphling.subject.predicates.values(nid)
-        if (oid !== null) {
-          out.filter(o => graphling.object.predicates.has(o, oid)).forEach(o => preds.add(o))
-        } else {
-          out.forEach(o => preds.add(o))
-        }
+      if (outgoing && oid) {
+        graphling.sop.leaves(nid, oid).forEach(p => preds.add(p))
+      } else if (outgoing) {
+        graphling.spo.branches(nid).forEach(p => preds.add(p))
       }
-      if (incoming) {
-        const inc = graphling.object.predicates.values(nid)
-        if (oid !== null) {
-          inc.filter(o => graphling.object.predicates.has(o, oid)).forEach(o => preds.add(o))
-        } else {
-          inc.forEach(o => preds.add(o))
-        }
+      if (incoming && oid) {
+        graphling.osp.leaves(nid, oid).forEach(p => preds.add(p))
+      } else if (incoming) {
+        graphling.ops.branches(nid).forEach(p => preds.add(p))
       }
       return [...preds].map(p => props(p))
     },
@@ -153,10 +170,10 @@ module.exports = function () {
       const all = new Set()
 
       if (origins) {
-        graphling.predicate.subjects.values(lid).forEach(s => all.add(s))
+        graphling.pso.branches(lid).forEach(s => all.add(s))
       }
       if (targets) {
-        graphling.predicate.objects.values(lid).forEach(s => all.add(s))
+        graphling.pos.branches(lid).forEach(s => all.add(s))
       }
 
       return [...all].map(a => props(a))

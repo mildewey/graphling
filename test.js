@@ -8,6 +8,7 @@ test("simples", t => {
   store.link("c", "ca", "a")
 
   t.deepEqual(store.neighbors(null), [])
+  console.log("hello")
   t.deepEqual(store.neighbors("a"), ["b", "c"])
   t.deepEqual(store.neighbors("a", {incoming: false}), ["b"])
   t.deepEqual(store.neighbors("a", {outgoing: false}), ["c"])
@@ -77,5 +78,10 @@ test("multilinks", t => {
 
   t.deepEqual(store.neighbors("a"), ["b"])
   t.deepEqual(store.relationships("a"), ["link", arr, obj])
+  t.deepEqual(store.nodes(arr), ["a", "b"])
+
+  store.unlink("a", "link", "b")
+  t.deepEqual(store.neighbors("a"), ["b"])
+  t.deepEqual(store.relationships("a"), [arr, obj])
   t.deepEqual(store.nodes(arr), ["a", "b"])
 })
