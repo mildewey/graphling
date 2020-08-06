@@ -72,16 +72,18 @@ test("multilinks", t => {
 
   const arr = [1, 2, 3]
   const obj = {coolness: 58}
+  const sym = Symbol()
   store.link("a", "link", "b")
   store.link("a", arr, "b")
   store.link("a", obj, "b")
+  store.link("a", sym, "b")
 
   t.deepEqual(store.neighbors("a"), ["b"])
-  t.deepEqual(store.relationships("a"), ["link", arr, obj])
+  t.deepEqual(store.relationships("a"), ["link", arr, obj, sym])
   t.deepEqual(store.nodes(arr), ["a", "b"])
 
   store.unlink("a", "link", "b")
   t.deepEqual(store.neighbors("a"), ["b"])
-  t.deepEqual(store.relationships("a"), [arr, obj])
+  t.deepEqual(store.relationships("a"), [arr, obj, sym])
   t.deepEqual(store.nodes(arr), ["a", "b"])
 })
