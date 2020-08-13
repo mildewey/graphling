@@ -63,6 +63,16 @@ function store() {
       leaf = branch.get(b)
       if (leaf === undefined) return []
       return map_iter(leaf.keys(), identity)
+    },
+    [Symbol.iterator]: function* () {
+      let a, b, c, branch, leaf
+      for ([a, branch] of root.entries()) {
+          for ([b, leaf] of branch.entries()) {
+            for (c of leaf.values()) {
+              yield [a, b, c]
+            }
+          }
+      }
     }
   }
 }
@@ -177,6 +187,12 @@ module.exports = function () {
       }
 
       return [...all].map(a => props(a))
+    },
+    [Symbol.iterator]: function* () {
+      let a, b, c
+      for ([a, b, c] of graphling.spo) {
+          yield [props(a), props(b), props(c)]
+      }
     }
   }
 }

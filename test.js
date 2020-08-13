@@ -40,6 +40,16 @@ test("objects", t => {
   store.link(b, bc, c)
   store.link(c, ca, a)
 
+  const triples = []
+  for (const trip of store) {
+    triples.push(trip)
+  }
+  t.deepEqual(triples, [
+    [a, ab, b],
+    [b, bc, c],
+    [c, ca, a]
+  ])
+
   t.deepEqual(store.neighbors(a), [b, c])
   store.unlink(c, ca, a)
   b.quickness = "very fast"
@@ -54,6 +64,16 @@ test("hyperedges", t => {
   store.link("a", "link", "b")
   store.link("a", "link", "c")
   store.link("c", "link", "c")
+
+  const triples = []
+  for (const trip of store) {
+    triples.push(trip)
+  }
+  t.deepEqual(triples, [
+    ["a", "link", "b"],
+    ["a", "link", "c"],
+    ["c", "link", "c"]
+  ])
 
   t.deepEqual(store.neighbors("a"), ["b", "c"])
   t.deepEqual(store.neighbors("c"), ["c", "a"])
